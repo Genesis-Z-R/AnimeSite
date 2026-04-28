@@ -9,8 +9,12 @@ puppeteer.use(StealthPlugin());
 
 let globalBrowser = null;
 
+let globalBrowser = null;
+
 async function getBrowser() {
-  if (!globalBrowser) {
+  // Check if the browser doesn't exist OR if it was killed/disconnected
+  if (!globalBrowser || !globalBrowser.isConnected()) {
+    console.log("Launching new Chrome instance...");
     globalBrowser = await puppeteer.launch({
       headless: true,
       args: [
