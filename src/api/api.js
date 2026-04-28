@@ -1,11 +1,21 @@
 const axios = require('axios');
-const cloudscraper = require('cloudscraper');
 const cheerio = require('cheerio');
 const url = require('./urls');
 
+// Puppeteer Imports
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
+
+// Helper to avoid 403 on basic axios calls
+const axiosHeaders = {
+    headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    }
+};
 
 const ongoingSeries = async() =>{
-  const res = await axios.get(`${url.BASE_URL}`);
+  const res = await axios.get(`${url.BASE_URL}`, axiosHeaders);
   const body = await res.data;
   const $ = cheerio.load(body);
   const promises = [];
@@ -32,7 +42,7 @@ const ongoingSeries = async() =>{
 };
 
 const search = async(query) =>{
-  const res = await axios.get(`${url.BASE_URL}/search.html?keyword=${query}`);
+  const res = await axios.get(`${url.BASE_URL}/search.html?keyword=${query}`, axiosHeaders);
   const body = await res.data;
   const $ = cheerio.load(body);
   const promises = [];
@@ -57,7 +67,7 @@ const search = async(query) =>{
 };
 
 const genres = async(genre , page) =>{
-  const res = await axios.get(`${url.BASE_URL}/genre/${genre}?page=${page}`);
+  const res = await axios.get(`${url.BASE_URL}/genre/${genre}?page=${page}`, axiosHeaders);
   const body = await res.data;
   const $ = cheerio.load(body);
   const promises = [];
@@ -82,7 +92,7 @@ const genres = async(genre , page) =>{
 };
 
 const alphabetList = async(letter , page) =>{
-  const res = await axios.get(`${url.BASE_URL}/anime-list-${letter}?page=${page}`)
+  const res = await axios.get(`${url.BASE_URL}/anime-list-${letter}?page=${page}`, axiosHeaders)
   const body = await res.data;
   const $ = cheerio.load(body);
   const promises = [];
@@ -107,7 +117,7 @@ const alphabetList = async(letter , page) =>{
 };
 
 const newSeasons = async(page) =>{
-  const res = await axios.get(`${url.BASE_URL}/new-season.html?page=${page}`)
+  const res = await axios.get(`${url.BASE_URL}/new-season.html?page=${page}`, axiosHeaders)
   const body = await res.data;
   const $ = cheerio.load(body);
   const promises = [];
@@ -132,7 +142,7 @@ const newSeasons = async(page) =>{
 };
 
 const movies = async(page) =>{
-  const res = await axios.get(`${url.BASE_URL}/anime-movies.html?page=${page}`);
+  const res = await axios.get(`${url.BASE_URL}/anime-movies.html?page=${page}`, axiosHeaders);
   const body = await res.data;
   const $ = cheerio.load(body);
   const promises = [];
@@ -157,7 +167,7 @@ const movies = async(page) =>{
 };
 
 const popular = async(page) =>{
-  const res = await axios.get(`${url.BASE_URL}/popular.html?page=${page}`);
+  const res = await axios.get(`${url.BASE_URL}/popular.html?page=${page}`, axiosHeaders);
   const body = await res.data;
   const $ = cheerio.load(body);
   const promises = [];
@@ -182,7 +192,7 @@ const popular = async(page) =>{
 };
 
 const recentlyAddedSeries = async() =>{
-  const res = await axios.get(`${url.BASE_URL}`);
+  const res = await axios.get(`${url.BASE_URL}`, axiosHeaders);
   const body = await res.data;
   const $ = cheerio.load(body);
   const promises = [];
@@ -207,7 +217,7 @@ const recentlyAddedSeries = async() =>{
 };
 
 const recentReleaseEpisodes = async(page) =>{
-  const res = await axios.get(`${url.BASE_URL}/?page=${page}`);
+  const res = await axios.get(`${url.BASE_URL}/?page=${page}`, axiosHeaders);
   const body = await res.data;
   const $ = cheerio.load(body);
   const promises = [];
@@ -235,7 +245,7 @@ const recentReleaseEpisodes = async(page) =>{
 };
 
 const animeEpisodeHandler = async(id) =>{
-  const res = await axios.get(`${url.BASE_URL}/${id}`);
+  const res = await axios.get(`${url.BASE_URL}/${id}`, axiosHeaders);
   const body = await res.data;
   const $ = cheerio.load(body);
   const promises = [];
@@ -246,18 +256,21 @@ const animeEpisodeHandler = async(id) =>{
     const category = $element.find('div.anime_video_body div.anime_video_body_cate a').attr('href').split('/')[2].trim();
 
     const servers = [];
-    $element.find('div.anime_muti_link ul li').each((j , el) =>{
+    
+    // UPDATED SELECTOR FOR ANITAKU.TO
+    $element.find('.anime_muti_link .server a').each((j , el) =>{
       const $el = $(el);
-      const name = $el.find('a').text().substring(0 , $el.find('a').text().lastIndexOf('C')).trim();
-      let iframe = $el.find('a').attr('data-video');
-      if(iframe.startsWith('//')){
-        iframe = $el.find('a').attr('data-video').slice(2);
+      const name = $el.text().replace('Choose this server', '').trim();
+      let iframe = $el.attr('data-video');
+      if(iframe && iframe.startsWith('//')){
+        iframe = `https:${iframe}`; // Prepend https correctly
       } 
       servers.push({
         name: name,
         iframe: iframe
       });
     })
+    
     promises.push(animeContentHandler(animeId).then(extra =>({
       img: extra[0] ? extra[0].img : null,
       synopsis: extra[0] ? extra[0].synopsis : null,
@@ -270,20 +283,30 @@ const animeEpisodeHandler = async(id) =>{
       servers: servers ? servers : null
     })));
   })
-  return await Promise.all(promises);
+  
+  const results = await Promise.all(promises);
+  if(results.length === 0 || !results[0].servers || results[0].servers.length === 0) {
+      throw new Error("Episode Not Found or Selectors Failed");
+  }
+  return results;
 }
 
 const animeContentHandler = async(id) =>{
-  const res = await axios.get(`${url.BASE_URL}${id}`);
+  const res = await axios.get(`${url.BASE_URL}${id}`, axiosHeaders);
   const body = await res.data;
   const $ = cheerio.load(body);
   const promises = [];
   let check_zero_episode = false;
-  const check_zero_episode_axios = await axios.get(`${url.BASE_URL}${id.split('/')[2]}`);
-  const check_zero_episode_body = await check_zero_episode_axios.data;
-  const check_zero_episode_cheerio = cheerio.load(check_zero_episode_body);
-  if(check_zero_episode_cheerio('.entry-title').text()!='404') {
-    check_zero_episode = true
+  
+  try {
+      const check_zero_episode_axios = await axios.get(`${url.BASE_URL}${id.split('/')[2]}`, axiosHeaders);
+      const check_zero_episode_body = await check_zero_episode_axios.data;
+      const check_zero_episode_cheerio = cheerio.load(check_zero_episode_body);
+      if(check_zero_episode_cheerio('.entry-title').text()!='404') {
+        check_zero_episode = true
+      }
+  } catch(e) {
+      // Ignore 404s for zero episodes
   }
 
   $('div#wrapper_bg').each((index , element) =>{
@@ -296,24 +319,33 @@ const animeContentHandler = async(id) =>{
       const genre = $el.attr('href').split('/')[4];
       genres.push(genre);
     });
-    const released = parseInt($element.find('div.anime_info_body_bg p.type').eq(3).text().match(/\d+/g) , 10);
+    
+    const releasedText = $element.find('div.anime_info_body_bg p.type').eq(3).text().match(/\d+/g);
+    const released = releasedText ? parseInt(releasedText[0] , 10) : null;
+    
     const status = $element.find('div.anime_info_body_bg p.type').eq(4).text().replace('Status:' , '').trim();
     const otherName = $element.find('div.anime_info_body_bg p.type').eq(5).text().replace('Other name:' , '').trim();
     const liTotal = $('div.anime_video_body ul#episode_page li').length;
-    var totalEpisodes = parseInt($('div.anime_video_body ul#episode_page li').eq(liTotal - 1).find('a').text().split('-')[1] , 10);
-    if(!totalEpisodes){
-       totalEpisodes = parseInt($('div.anime_video_body ul#episode_page li').eq(liTotal - 1).find('a').text() , 10);
+    
+    let totalEpisodes = 0;
+    if(liTotal > 0) {
+        let epText = $('div.anime_video_body ul#episode_page li').eq(liTotal - 1).find('a').text();
+        if(epText.includes('-')) {
+            totalEpisodes = parseInt(epText.split('-')[1] , 10);
+        } else {
+            totalEpisodes = parseInt(epText, 10);
+        }
     }
     
     let episodes = Array.from({length: totalEpisodes} , (v , k) =>{
-      const animeId = `${id}-episode-${k + 1}`.slice(10);
+      const animeId = `${id}-episode-${k + 1}`.replace('/category/', '');
       return{
         id: animeId
       }
     });
     
     if(check_zero_episode) {
-      episodes.unshift({id:id.split('/')[2]});
+      episodes.unshift({id: id.split('/')[2]});
     }
 
     promises.push({
@@ -330,41 +362,49 @@ const animeContentHandler = async(id) =>{
   return await Promise.all(promises);
 };
 
-const decodeVidstreamingIframeURL = async(url) =>{
-  const _url = `https://${url}`;
-  let realUrl = "";
-  if(_url.includes('streaming')){
-    realUrl = _url.replace(/streaming/g , 'check').trim();
-    if(realUrl.includes('vidcheck.io')){
-      realUrl = _url.replace(/vidcheck.io/g , 'vidstreaming.io').trim();
-    }
-  }
-  if(_url.includes('load')){
-    realUrl = _url.replace(/load/g , 'check').trim();
-  }
-  if(_url.includes('server')){
-    realUrl = _url.replace(/server/g , 'check').trim();
-  }
+const decodeVidstreamingIframeURL = async (iframeUrl) => {
+    // Ensure URL is absolute
+    const targetUrl = iframeUrl.startsWith('http') ? iframeUrl : `https://${iframeUrl}`;
+    
+    let browser;
+    try {
+        browser = await puppeteer.launch({ 
+            headless: true, 
+            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+        });
+        
+        const page = await browser.newPage();
+        
+        const videoLinks = [];
 
-  const data = await cloudscraper(realUrl);
-  const match = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)?/gi;
-  const _URLs = String(data).match(match)
-    .filter(url => url.includes('.mp4') || url.includes('m3u8'));
+        // Intercept network requests to catch the .m3u8 or .mp4 files
+        await page.setRequestInterception(true);
+        page.on('request', (request) => {
+            const requestUrl = request.url();
+            if (requestUrl.includes('.m3u8') || requestUrl.includes('.mp4')) {
+                videoLinks.push(requestUrl);
+            }
+            request.continue();
+        });
 
-  const URLs = [];
-  Array.from({length: _URLs.length} , (v , k) =>{
-    const option = k + 1;
-    let url  = _URLs[k];
-    if(!url.includes('https://')){
-      url = `https://${url}`
+        await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+
+        // Wait a few seconds for the stream to appear in network traffic
+        await new Promise(r => setTimeout(r, 4000));
+
+        await browser.close();
+
+        // Format the results
+        return videoLinks.map((link, index) => ({
+            option: index + 1,
+            url: link
+        }));
+
+    } catch (error) {
+        if (browser) await browser.close();
+        console.error("Puppeteer Error:", error);
+        return [];
     }
-    URLs.push({
-      option: option || null,
-      url: url || null
-    })
-  });
-  
-  return Promise.all(URLs);
 }
 
 module.exports = {
