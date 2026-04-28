@@ -9,8 +9,6 @@ puppeteer.use(StealthPlugin());
 
 let globalBrowser = null;
 
-let globalBrowser = null;
-
 async function getBrowser() {
   // Check if the browser doesn't exist OR if it was killed/disconnected
   if (!globalBrowser || !globalBrowser.isConnected()) {
