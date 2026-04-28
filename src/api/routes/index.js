@@ -119,7 +119,7 @@ router.get('/decodevidstreamingiframeURL', (req, res) => {
   if(!iframeUrl) {
       return res.status(400).json({ 
           error: "Missing URL parameter", 
-          example: "http://localhost:5001/api/v1/decodevidstreamingiframeURL?url=https://vibeplayer.site/..." 
+          example: "http://:5001/api/v1/decodevidstreamingiframeURL?url=https://vibeplayer.site/..." 
       });
   }
 

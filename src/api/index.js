@@ -5,28 +5,7 @@ const axios = require('axios');
 const routes = require('./routes/index');
 const router = express.Router();
 
-router.get('/', (req, res) => {
-  res.json({
-    message: 'gogoanime API - 👋🌎🌍🌏',
-    entries: [
-      {
-        "Search": "/api/v1/Search/:query",
-        "AnimeEpisodeHandler": "/api/v1/AnimeEpisodeHandler/:id",
-        "RecentReleaseEpisodes": "/api/v1/RecentReleaseEpisodes/:page",
-        "RecentlyAddedSeries": "/api/v1/RecentlyAddedSeries",
-        "OngoingSeries": "/api/v1/OngoingSeries",
-        "Alphabet": "/api/v1/Alphabet/:letter/:page",
-        "NewSeasons": "/api/v1/NewSeasons/:page",
-        "Movies": "/api/v1/Movies/:page",
-        "Popular": "/api/v1/Popular/:page",
-        "Genre": "/api/v1/Genre/:genre/:page",
-        "DecodeVidstreamingIframeURL": "/api/v1/DecodeVidstreamingIframeURL"
-      }
-    ]
-  });
-});
-
-router.get('/proxy', async (req, res) => {
+rorouter.get('/proxy', async (req, res) => {
   const videoUrl = req.query.url;
   
   if (!videoUrl) {
@@ -35,6 +14,11 @@ router.get('/proxy', async (req, res) => {
 
   try {
     const isM3u8 = videoUrl.includes('.m3u8');
+
+    // Dynamically grab the current server URL (handles both localhost and Render)
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const currentServerUrl = `${protocol}://${host}`;
 
     // If it's a playlist (.m3u8), we intercept the text and rewrite the links
     if (isM3u8) {
@@ -56,8 +40,8 @@ router.get('/proxy', async (req, res) => {
         // If the line is a file (not a comment or blank space)
         if (trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('http')) {
           const absoluteUrl = baseUrl + trimmed;
-          // Wrap it back into our local proxy!
-          return `http://localhost:5001/api/v1/proxy?url=${encodeURIComponent(absoluteUrl)}`;
+          // Wrap it back into our dynamic proxy!
+          return `${currentServerUrl}/api/v1/proxy?url=${encodeURIComponent(absoluteUrl)}`;
         }
         return line;
       }).join('\n');
