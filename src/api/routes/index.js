@@ -1,11 +1,36 @@
 const express = require('express');
 const router = express.Router();
 const api = require('../api');
+const searchCache = new Map();
+const CACHE_DURATION = 1000 * 60 * 60; // 1 hour in milliseconds
 
 router.get('/search/:query', (req, res) => {
-  const query = req.params.query;
+  const query = req.params.query.toLowerCase();
+  const now = Date.now();
+
+  // 1. Check if the query is in our cache
+  if (searchCache.has(query)) {
+    const cachedItem = searchCache.get(query);
+    
+    // 2. Check if the cache is still fresh (under 1 hour old)
+    if (now - cachedItem.timestamp < CACHE_DURATION) {
+      console.log(`[CACHE HIT] Returning instant search results for: ${query}`);
+      return res.status(200).json({ search: cachedItem.data });
+    } else {
+      // 3. Cache expired, delete it so we can fetch a fresh one
+      searchCache.delete(query);
+    }
+  }
+
+  // 4. If not in cache (or expired), scrape it normally
+  console.log(`[CACHE MISS] Scraping new search results for: ${query}`);
   api.search(query)
     .then(search => {
+      // 5. Save the fresh results to the cache before sending to the user
+      searchCache.set(query, {
+        data: search,
+        timestamp: now
+      });
       res.status(200).json({ search });
     })
     .catch(err => {
