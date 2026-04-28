@@ -3,6 +3,10 @@ const router = express.Router();
 const api = require('../api');
 const searchCache = new Map();
 const CACHE_DURATION = 1000 * 60 * 60; // 1 hour in milliseconds
+const { createClient } = require('@supabase/supabase-js');
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 router.get('/search/:query', (req, res) => {
   const query = req.params.query.toLowerCase();
@@ -137,24 +141,62 @@ router.get('/genre/:genre/:page', (req, res) => {
     });
 });
 
-// FIXED: Now uses a query parameter (?url=...) so https:// links stay intact
-router.get('/decodevidstreamingiframeURL', (req, res) => {
+router.get('/decodevidstreamingiframeURL', async (req, res) => {
   const iframeUrl = req.query.url;
   
   if(!iframeUrl) {
       return res.status(400).json({ 
           error: "Missing URL parameter", 
-          example: "http://:5001/api/v1/decodevidstreamingiframeURL?url=https://vibeplayer.site/..." 
+          example: "http://localhost:5001/api/v1/decodevidstreamingiframeURL?url=https://vibeplayer.site/..." 
       });
   }
 
-  api.decodeVidstreamingIframeURL(iframeUrl)
-    .then(videos => {
+  try {
+    // 1. Check Supabase for the cached link
+    const { data: cachedVideo, error: fetchError } = await supabase
+      .from('video_cache')
+      .select('extracted_url, created_at')
+      .eq('iframe_url', iframeUrl)
+      .single();
+
+    if (cachedVideo) {
+      // 2. Check if the link is older than 12 hours (43,200,000 milliseconds)
+      const cacheAge = new Date() - new Date(cachedVideo.created_at);
+      const twelveHours = 12 * 60 * 60 * 1000;
+
+      if (cacheAge < twelveHours) {
+        console.log('[SUPABASE HIT] Returning instant cached video link!');
+        return res.status(200).json({ videos: [{ url: cachedVideo.extracted_url }] });
+      } else {
+        console.log('[SUPABASE EXPIRED] Link is too old. Deleting and fetching fresh...');
+        await supabase.from('video_cache').delete().eq('iframe_url', iframeUrl);
+      }
+    }
+
+    // 3. If no cache (or expired), boot up Puppeteer
+    console.log('[SUPABASE MISS] Scraping new video link...');
+    const videos = await api.decodeVidstreamingIframeURL(iframeUrl);
+
+    if (videos && videos.length > 0) {
+      const extractedUrl = videos[0].url;
+
+      // 4. Save the fresh link to Supabase silently in the background
+      supabase
+        .from('video_cache')
+        .insert([{ iframe_url: iframeUrl, extracted_url: extractedUrl }])
+        .then(({ error }) => {
+            if (error) console.error("Supabase insert error:", error);
+        });
+
       res.status(200).json({ videos });
-    })
-    .catch(err => {
-      res.status(500).json({ error: "Failed to decode video", details: err.message });
-    });
+    } else {
+      res.status(404).json({ error: "No video stream found" });
+    }
+
+  } catch (err) {
+    console.error("Decode Route Error:", err);
+    res.status(500).json({ error: "Failed to decode video", details: err.message });
+  }
 });
 
 module.exports = router;
