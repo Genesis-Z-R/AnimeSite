@@ -7,6 +7,26 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
+let globalBrowser = null;
+
+async function getBrowser() {
+  if (!globalBrowser) {
+    globalBrowser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--single-process',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote'
+      ]
+    });
+  }
+  return globalBrowser;
+}
+
 // Helper to avoid 403 on basic axios calls
 const axiosHeaders = {
     headers: {
@@ -368,21 +388,8 @@ const decodeVidstreamingIframeURL = async (iframeUrl) => {
     
     let browser;
     try {
-        browser = await puppeteer.launch({ 
-            headless: true, 
-             args: [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-accelerated-2d-canvas',
-    '--no-first-run',
-    '--no-zygote',
-    '--single-process', // <- this one is very important for cloud servers
-    '--disable-gpu'
-  ]
-});
-        
-        const page = await browser.newPage();
+          const browser = await getBrowser(); // This grabs the background Chrome
+  const page = await browser.newPage(); // This opens a new tab
         
         const videoLinks = [];
 
@@ -414,6 +421,7 @@ const decodeVidstreamingIframeURL = async (iframeUrl) => {
         console.error("Puppeteer Error:", error);
         return [];
     }
+      await page.close(); 
 }
 
 module.exports = {
