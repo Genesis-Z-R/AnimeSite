@@ -65,8 +65,24 @@ export default function Watch() {
         const episodeData = await api.getEpisodeServers(episodeId);
         
         const rawServerList = episodeData.anime[0].servers;
+        
+        // 1. Process the servers to identify Sub vs Dub
+        const processedServers = rawServerList.map((s: Server) => {
+          let isSub = false;
+          try {
+            const iframeUrlObj = new URL(s.iframe);
+            isSub = !!(iframeUrlObj.searchParams.get('sub') || iframeUrlObj.searchParams.get('caption_1'));
+          } catch (e) { }
+          
+          return {
+            ...s,
+            name: `${s.name.trim()} ${isSub ? '(Sub)' : '(Dub)'}`
+          };
+        });
+
+        // 2. Deduplicate using the NEW distinct names
         const uniqueServers = Array.from(
-          new Map(rawServerList.map((s: Server) => [s.name.trim(), s])).values()
+          new Map(processedServers.map((s: Server) => [s.name, s])).values()
         ) as Server[];
         
         setServers(uniqueServers);
@@ -85,8 +101,8 @@ export default function Watch() {
           setLoading(false);
         }
       } catch (err) {
-        console.error('Watch error:', err);
-        setError('Failed to load episode data. Please try again later.');
+        console.error('Init error:', err);
+        setError('Failed to load episode data.');
         setLoading(false);
       }
     };
@@ -114,6 +130,7 @@ export default function Watch() {
       const decodeData = await api.decodeVideoLink(server.iframe);
       if (decodeData.videos && decodeData.videos.length > 0) {
         const rawM3u8Url = decodeData.videos[0].url;
+        // Pointing to your live Render backend proxy
         setVideoUrl(`https://animesite-zx6n.onrender.com/api/v1/proxy?url=${encodeURIComponent(rawM3u8Url)}`);
       } else {
         setError('Could not extract video stream from this server.');
@@ -139,7 +156,6 @@ export default function Watch() {
       newFavorites = storedFavs.filter((f: any) => (f.id || f.animeId) !== baseId);
       setIsFavorite(false);
     } else {
-      // Use passedAnime first, then metadata, then fallback to formatting the ID
       newFavorites = [...storedFavs, {
         id: baseId,
         title: passedAnime?.title || metadata?.title || baseId.replace(/-/g, ' ').toUpperCase(),
@@ -309,8 +325,25 @@ export default function Watch() {
                 
                 if (displayEpisodes.length === 0 && id) {
                   const baseId = id.replace(/-episode-\d+$/, '');
-                  displayEpisodes = Array.from({ length: 24 }, (_, i) => ({
-                    id: `${baseId}-episode-${i + 1}`
+                  
+                  // Try to pull the real count from the homepage data
+                  let maxEpisodes = Number(passedAnime?.totalEpisodes) || 
+                                    passedAnime?.episodes?.length || 
+                                    Number(passedAnime?.episodeNum) || 
+                                    (metadata?.totalEpisodes > 0 ? metadata.totalEpisodes : 0);
+                  
+                  // Identify the episode the user is currently watching
+                  const currentEpMatch = id.match(/-episode-(\d+)$/);
+                  const currentEpNum = currentEpMatch ? parseInt(currentEpMatch[1], 10) : 1;
+                  
+                  // Fallback: Ensure the grid covers the current episode plus a few extra
+                  if (!maxEpisodes || maxEpisodes < currentEpNum) {
+                    maxEpisodes = Math.max(24, currentEpNum + 5); 
+                  }
+
+                  displayEpisodes = Array.from({ length: maxEpisodes }, (_, i) => ({
+                    id: `${baseId}-episode-${i + 1}`,
+                    number: i + 1
                   }));
                 }
 
