@@ -5,7 +5,7 @@ const axios = require('axios');
 const routes = require('./routes/index');
 const router = express.Router();
 
-rorouter.get('/proxy', async (req, res) => {
+router.get('/proxy', async (req, res) => {
   const videoUrl = req.query.url;
   
   if (!videoUrl) {
