@@ -24,7 +24,6 @@ const AnimeInfo = () => {
   const [episodes, setEpisodes] = useState<any[]>([]);
   const [isEpisodesLoading, setIsEpisodesLoading] = useState(true);
   
-  // State for the episode tabs (001-100, etc.)
   const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
@@ -49,7 +48,7 @@ const AnimeInfo = () => {
     if (id) fetchMalData();
   }, [id]);
 
-     const fetchScraperEpisodes = async (exactTitle: string) => {
+  const fetchScraperEpisodes = async (exactTitle: string) => {
     try {
       setIsEpisodesLoading(true);
       
@@ -83,26 +82,6 @@ const AnimeInfo = () => {
     }
   };
 
-const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/info/${matchId}`);
-        
-        if (!episodeResponse.ok) throw new Error('Info endpoint returned an error');
-        
-        const episodeData = await episodeResponse.json();
-        
-        // Your backend returns the object directly, so we just grab .episodes
-        setEpisodes(episodeData.episodes || []);
-      } else {
-        console.log("No matches found in scraper backend.");
-        setEpisodes([]);
-      }
-    } catch (error) {
-      console.error("Error fetching scraper episodes:", error);
-    } finally {
-      setIsEpisodesLoading(false);
-    }
-  };
-
-  // Helper function to chunk episodes into groups of 100
   const chunkedEpisodes = [];
   const chunkSize = 100;
   for (let i = 0; i < episodes.length; i += chunkSize) {
@@ -124,7 +103,6 @@ const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 font-sans relative selection:bg-sky-500/30 pb-20">
       
-      {/* Cinematic Background overlay */}
       <div 
         className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-30"
         style={{ backgroundImage: `url(${info.images.jpg.large_image_url})` }} 
@@ -133,7 +111,6 @@ const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-12 flex flex-col gap-12">
         
-        {/* Back Button */}
         <button 
           onClick={() => navigate('/')}
           className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors w-max"
@@ -141,7 +118,6 @@ const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/
           <ArrowLeft className="w-5 h-5" /> Back to Search
         </button>
 
-        {/* Top Section: MAL Metadata */}
         <div className="flex flex-col lg:flex-row gap-10">
           <img 
             src={info.images.jpg.large_image_url} 
@@ -186,7 +162,6 @@ const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/
           </div>
         </div>
 
-        {/* Bottom Section: Tabbed Episodes Grid */}
         <div className="mt-4">
           <h2 className="text-2xl font-black tracking-tight mb-6 flex items-center gap-3">
             <PlayCircle className="w-6 h-6 text-sky-500" /> Select Episode
@@ -199,7 +174,6 @@ const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/
           ) : episodes.length > 0 ? (
             <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl">
               
-              {/* Tab Navigation */}
               {chunkedEpisodes.length > 1 && (
                 <div className="flex flex-wrap gap-2 mb-6 pb-6 border-b border-white/10">
                   {chunkedEpisodes.map((_, index) => {
@@ -223,7 +197,6 @@ const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/
                 </div>
               )}
 
-              {/* Episode Grid for Active Tab */}
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
                 {chunkedEpisodes[activeTab]?.map((ep) => (
                   <button
@@ -232,7 +205,7 @@ const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/
                     className="bg-slate-800/80 hover:bg-sky-500 hover:shadow-[0_0_20px_rgba(14,165,233,0.4)] text-slate-300 hover:text-white py-3 px-4 rounded-xl border border-white/5 hover:border-sky-400 transition-all font-bold flex flex-col items-center gap-1 group"
                   >
                     <span className="text-xs font-normal opacity-70 group-hover:opacity-100">EPISODE</span>
-                    <span>{ep.number}</span>
+                    <span>{ep.id.split('-').pop()}</span>
                   </button>
                 ))}
               </div>
