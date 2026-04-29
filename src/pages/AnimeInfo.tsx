@@ -49,29 +49,42 @@ const AnimeInfo = () => {
     if (id) fetchMalData();
   }, [id]);
 
-  const fetchScraperEpisodes = async (exactTitle: string) => {
+    const fetchScraperEpisodes = async (exactTitle: string) => {
     try {
       setIsEpisodesLoading(true);
       
-      // Fixed: Inserted your Render backend URL
       const searchResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/Search/${encodeURIComponent(exactTitle)}`);
       const searchData = await searchResponse.json();
 
-      // Handle typical scraper array structures
-      const resultsArray = Array.isArray(searchData) ? searchData : (searchData.results || []);
+      // FIX 1: Look for the 'search' array that your backend actually sends
+      const resultsArray = searchData.search || searchData.results || (Array.isArray(searchData) ? searchData : []);
 
-      const exactMatch = resultsArray.find(
+      // Try strict matching first
+      let match = resultsArray.find(
         (result: any) => result.title.toLowerCase() === exactTitle.toLowerCase()
       );
 
-      if (exactMatch) {
-        // Handle variations in ID naming (id vs animeId)
-        const matchId = exactMatch.id || exactMatch.animeId;
-        const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/info/${matchId}`);
+      // FIX 2: If strict match fails (e.g. "Bleach" vs "Bleach (TV)"), fallback to the first result
+      if (!match && resultsArray.length > 0) {
+        console.log(`Strict match failed for "${exactTitle}". Falling back to closest result: "${resultsArray[0].title}"`);
+        match = resultsArray[0];
+      }
+
+      if (match) {
+        let matchId = match.id || match.animeId;
+matchId = matchId.replace('/category/', '');
+
+const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/info/${matchId}`);
+        
+        if (!episodeResponse.ok) throw new Error('Info endpoint returned an error');
+        
         const episodeData = await episodeResponse.json();
+        
+        // Your backend returns the object directly, so we just grab .episodes
         setEpisodes(episodeData.episodes || []);
       } else {
-        console.log("No strict match found in scraper backend.");
+        console.log("No matches found in scraper backend.");
+        setEpisodes([]);
       }
     } catch (error) {
       console.error("Error fetching scraper episodes:", error);
