@@ -198,16 +198,21 @@ const AnimeInfo = () => {
               )}
 
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
-                {chunkedEpisodes[activeTab]?.map((ep) => (
-                  <button
-                    key={ep.id}
-                    onClick={() => navigate(`/watch/${ep.id}`)}
-                    className="bg-slate-800/80 hover:bg-sky-500 hover:shadow-[0_0_20px_rgba(14,165,233,0.4)] text-slate-300 hover:text-white py-3 px-4 rounded-xl border border-white/5 hover:border-sky-400 transition-all font-bold flex flex-col items-center gap-1 group"
-                  >
-                    <span className="text-xs font-normal opacity-70 group-hover:opacity-100">EPISODE</span>
-                    <span>{ep.id.split('-').pop()}</span>
-                  </button>
-                ))}
+                {chunkedEpisodes[activeTab]?.map((ep) => {
+  // Check if the ID actually contains 'episode-', otherwise default to '0' (Prologue)
+  const epNum = ep.id.includes('episode-') ? ep.id.split('episode-').pop() : '0';
+  
+  return (
+    <button
+      key={ep.id}
+      onClick={() => navigate(`/watch/${ep.id}`)}
+      className="bg-slate-800/80 hover:bg-sky-500 hover:shadow-[0_0_20px_rgba(14,165,233,0.4)] text-slate-300 hover:text-white py-3 px-4 rounded-xl border border-white/5 hover:border-sky-400 transition-all font-bold flex flex-col items-center gap-1 group"
+    >
+      <span className="text-xs font-normal opacity-70 group-hover:opacity-100">EPISODE</span>
+      <span>{epNum}</span>
+    </button>
+  );
+})}
               </div>
 
             </div>
