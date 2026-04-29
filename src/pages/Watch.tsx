@@ -319,32 +319,19 @@ export default function Watch() {
             <div className="lg:col-span-4 flex flex-col gap-6">
               
               {(() => {
-                let displayEpisodes = metadata?.episodes && metadata.episodes.length > 0 
-                  ? metadata.episodes 
-                  : [];
+                // 1. Map directly over the provided arrays instead of generating an arbitrary count
+                const displayEpisodes = passedAnime?.episodes?.length > 0 
+                  ? passedAnime.episodes 
+                  : metadata?.episodes?.length > 0 
+                    ? metadata.episodes 
+                    : [];
                 
+                // 2. Safe fallback: if we arrive via direct URL and backend lacks episode array, 
+                // we gracefully show only the currently playing episode instead of 24 generated buttons.
                 if (displayEpisodes.length === 0 && id) {
-                  const baseId = id.replace(/-episode-\d+$/, '');
-                  
-                  // Try to pull the real count from the homepage data
-                  let maxEpisodes = Number(passedAnime?.totalEpisodes) || 
-                                    passedAnime?.episodes?.length || 
-                                    Number(passedAnime?.episodeNum) || 
-                                    (metadata?.totalEpisodes > 0 ? metadata.totalEpisodes : 0);
-                  
-                  // Identify the episode the user is currently watching
                   const currentEpMatch = id.match(/-episode-(\d+)$/);
                   const currentEpNum = currentEpMatch ? parseInt(currentEpMatch[1], 10) : 1;
-                  
-                  // Fallback: Ensure the grid covers the current episode plus a few extra
-                  if (!maxEpisodes || maxEpisodes < currentEpNum) {
-                    maxEpisodes = Math.max(24, currentEpNum + 5); 
-                  }
-
-                  displayEpisodes = Array.from({ length: maxEpisodes }, (_, i) => ({
-                    id: `${baseId}-episode-${i + 1}`,
-                    number: i + 1
-                  }));
+                  displayEpisodes.push({ id, number: currentEpNum });
                 }
 
                 return (
@@ -355,9 +342,13 @@ export default function Watch() {
                     <div className="flex flex-col gap-2 overflow-y-auto pr-2 custom-scrollbar">
                       {displayEpisodes.map((ep: any, index: number) => {
                         const isCurrent = id === ep.id || (!id?.includes('episode') && index === 0);
+                        
+                        // Reliably extract the episode number using the split logic to avoid parsing season numbers
+                        const epNum = ep.number || (ep.id?.includes('episode-') ? ep.id.split('episode-').pop() : index + 1);
+
                         return (
                           <button
-                            key={ep.id}
+                            key={ep.id || index}
                             onClick={() => navigate(`/watch/${ep.id}`)}
                             className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
                               isCurrent ? 'bg-sky-500/10 border-sky-500/50 text-sky-400' : 'bg-white/5 border-white/5 hover:bg-white/10 text-slate-300'
@@ -365,7 +356,7 @@ export default function Watch() {
                           >
                             <PlayCircle className={`w-4 h-4 flex-shrink-0 ${isCurrent ? 'text-sky-400' : 'text-slate-500'}`} />
                             <span className="text-sm font-medium line-clamp-1">
-                               {ep.number ? `Episode ${ep.number}` : `Episode ${index + 1}`}
+                               Episode {epNum}
                             </span>
                           </button>
                         );
