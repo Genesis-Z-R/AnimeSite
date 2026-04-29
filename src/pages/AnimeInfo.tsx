@@ -54,7 +54,7 @@ const AnimeInfo = () => {
       setIsEpisodesLoading(true);
       
       // Fixed: Inserted your Render backend URL
-      const searchResponse = await fetch(`https://animesite-zx6n.onrender.com/api/search?q=${encodeURIComponent(exactTitle)}`);
+      const searchResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/Search/${encodeURIComponent(exactTitle)}`);
       const searchData = await searchResponse.json();
 
       // Handle typical scraper array structures
@@ -67,7 +67,7 @@ const AnimeInfo = () => {
       if (exactMatch) {
         // Handle variations in ID naming (id vs animeId)
         const matchId = exactMatch.id || exactMatch.animeId;
-        const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/info/${matchId}`);
+        const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/info/${matchId}`);
         const episodeData = await episodeResponse.json();
         setEpisodes(episodeData.episodes || []);
       } else {
