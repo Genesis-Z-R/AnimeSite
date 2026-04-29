@@ -49,14 +49,13 @@ const AnimeInfo = () => {
     if (id) fetchMalData();
   }, [id]);
 
-    const fetchScraperEpisodes = async (exactTitle: string) => {
+     const fetchScraperEpisodes = async (exactTitle: string) => {
     try {
       setIsEpisodesLoading(true);
       
       const searchResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/Search/${encodeURIComponent(exactTitle)}`);
       const searchData = await searchResponse.json();
 
-      // FIX 1: Look for the 'search' array that your backend actually sends
       const resultsArray = searchData.search || searchData.results || (Array.isArray(searchData) ? searchData : []);
 
       // Try strict matching first
@@ -64,15 +63,25 @@ const AnimeInfo = () => {
         (result: any) => result.title.toLowerCase() === exactTitle.toLowerCase()
       );
 
-      // FIX 2: If strict match fails (e.g. "Bleach" vs "Bleach (TV)"), fallback to the first result
+      // If strict match fails, fallback to the first result
       if (!match && resultsArray.length > 0) {
         console.log(`Strict match failed for "${exactTitle}". Falling back to closest result: "${resultsArray[0].title}"`);
         match = resultsArray[0];
       }
 
       if (match) {
-        let matchId = match.id || match.animeId;
-matchId = matchId.replace('/category/', '');
+        // We skip the second fetch entirely. The episodes are already in the match object!
+        setEpisodes(match.episodes || []);
+      } else {
+        console.log("No matches found in scraper backend.");
+        setEpisodes([]);
+      }
+    } catch (error) {
+      console.error("Error fetching scraper episodes:", error);
+    } finally {
+      setIsEpisodesLoading(false);
+    }
+  };
 
 const episodeResponse = await fetch(`https://animesite-zx6n.onrender.com/api/v1/info/${matchId}`);
         
