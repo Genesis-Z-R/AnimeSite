@@ -430,6 +430,7 @@ module.exports = {
   animeEpisodeHandler,
   recentReleaseEpisodes,
   recentlyAddedSeries,
+  animeContentHandler,
   ongoingSeries,
   alphabetList,
   newSeasons,
