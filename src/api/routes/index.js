@@ -150,6 +150,19 @@ router.get('/decodevidstreamingiframeURL', async (req, res) => {
           example: "http://localhost:5001/api/v1/decodevidstreamingiframeURL?url=https://vibeplayer.site/..." 
       });
   }
+  router.get('/info/:id', (req, res) => {
+  const id = req.params.id;
+  
+  // The scraper expects the ID formatted with /category/
+  api.animeContentHandler(`/category/${id}`) 
+    .then(anime => {
+      // The handler returns an array with one object, so we send the first item
+      res.status(200).json(anime[0]);
+    })
+    .catch(err => {
+      res.status(404).json({ error: "Anime Info Not Found", details: err.message });
+    });
+});
 
   try {
     // 1. Check Supabase for the cached link
